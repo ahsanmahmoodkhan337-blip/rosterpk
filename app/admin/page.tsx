@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, parseISO, differenceInHours } from 'date-fns';
 import Header from '../components/Header';
+import AuthGuard from '../components/AuthGuard';
 
 interface Department {
   id: string;
@@ -311,6 +312,7 @@ export default function AdminRosterBuilder() {
   }, []);
 
   return (
+    <AuthGuard>
     <div className="min-h-screen bg-gray-50">
       <Header
         title="Roster Builder"
@@ -559,5 +561,6 @@ export default function AdminRosterBuilder() {
         )}
       </div>
     </div>
+    </AuthGuard>
   );
 }

@@ -1,44 +1,56 @@
-import { supabase } from '@/lib/supabase';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import Header from './components/Header';
+import AuthGuard from './components/AuthGuard';
+import { useAuth } from './components/AuthProvider';
 
-export const dynamic = 'force-dynamic';
+export default function TraineeDashboard() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
+  );
+}
 
-const CURRENT_USER_ID = 'sample-user-id';
+function DashboardContent() {
+  const { user } = useAuth();
+  const [shifts, setShifts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function TraineeDashboard() {
-  const { data: userData } = await supabase
-    .from('User')
-    .select('*, department:Department(*)')
-    .eq('id', CURRENT_USER_ID)
-    .single();
+  useEffect(() => {
+    if (!user) return;
 
-  const user = userData;
+    async function loadShifts() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/my-shifts?userId=${user!.id}`);
+        const data = await res.json();
+        if (data.error) {
+          console.error('Failed to load shifts:', data.error);
+          setShifts([]);
+        } else {
+          setShifts(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load shifts:', err);
+        setShifts([]);
+      }
+      setLoading(false);
+    }
 
-  const { data: shifts } = await supabase
-    .from('RosterEntry')
-    .select('*')
-    .eq('userId', CURRENT_USER_ID)
-    .gte('startTime', new Date().toISOString())
-    .order('startTime', { ascending: true })
-    .limit(5);
+    loadShifts();
+  }, [user]);
+
+  const deptName = user?.departmentName ?? 'No department assigned';
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Gold accent top bar */}
-      <div className="h-1 bg-[#fad23b]" />
-
-      {/* Header with logo and brand */}
-      <header className="bg-[#1e5cd4] p-4 shadow-md">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="RosterDoc" className="h-8 w-auto" />
-          <div>
-            <h1 className="text-xl font-bold text-white">My Schedule</h1>
-            <p className="text-xs text-[#fad23b]">
-              {user?.department?.name ?? 'No department assigned'}
-            </p>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="My Schedule"
+        subtitle={deptName}
+      />
 
       <div className="p-4">
         {/* Promo banner */}
@@ -56,7 +68,15 @@ export default async function TraineeDashboard() {
         {/* Upcoming Duties */}
         <div className="space-y-4">
           <h2 className="font-semibold text-[#1e5cd4]">Upcoming Duties</h2>
-          {(shifts ?? []).map((shift: any) => (
+
+          {loading && (
+            <div className="flex items-center gap-2 text-gray-400 text-sm">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-[#1e5cd4] border-t-transparent" />
+              Loading shifts...
+            </div>
+          )}
+
+          {!loading && shifts.map((shift: any) => (
             <div
               key={shift.id}
               className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex justify-between items-center"
@@ -72,7 +92,7 @@ export default async function TraineeDashboard() {
               </button>
             </div>
           ))}
-          {(!shifts || shifts.length === 0) && (
+          {!loading && shifts.length === 0 && (
             <p className="text-gray-500 text-sm">No upcoming shifts assigned.</p>
           )}
         </div>

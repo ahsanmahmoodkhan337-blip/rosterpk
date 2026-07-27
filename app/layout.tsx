@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { AuthProvider } from './components/AuthProvider';
 
 export const metadata: Metadata = {
   title: 'RosterDoc — Smart Hospital Scheduling',
@@ -17,7 +18,9 @@ export default function RootLayout({
         <link rel="icon" href="/logo.png" />
         <script src="https://cdn.tailwindcss.com"></script>
       </head>
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

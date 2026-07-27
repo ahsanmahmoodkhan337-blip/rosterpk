@@ -9,13 +9,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'departmentId query param is required' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  // Try with new schema fields first (rank), fall back to old schema
+  let { data, error } = await supabase
     .from('User')
-    .select('id, name, phone, role')
+    .select('id, name, phone, role, rank')
     .eq('departmentId', departmentId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Fall back to old schema (no rank column)
+    const { data: fallback, error: fallbackErr } = await supabase
+      .from('User')
+      .select('id, name, phone, role')
+      .eq('departmentId', departmentId);
+
+    if (fallbackErr) {
+      return NextResponse.json({ error: fallbackErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json(fallback ?? []);
   }
 
   return NextResponse.json(data ?? []);
