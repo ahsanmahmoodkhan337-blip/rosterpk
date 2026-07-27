@@ -10,14 +10,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'departmentId query param is required' }, { status: 400 });
   }
 
+  // Fetch with all fields — try new schema, fall back to old
   const { data, error } = await supabase
     .from('ShiftTemplate')
-    .select('id, name, durationHours, departmentId')
+    .select('id, name, durationHours, shiftType, startTime, endTime, requiredSeniorsCount, requiredJuniorsCount, departmentId')
     .eq('departmentId', departmentId)
     .order('name', { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Fall back to old schema
+    const { data: fallback, error: fallbackErr } = await supabase
+      .from('ShiftTemplate')
+      .select('id, name, durationHours, departmentId')
+      .eq('departmentId', departmentId)
+      .order('name', { ascending: true });
+
+    if (fallbackErr) {
+      return NextResponse.json({ error: fallbackErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json(fallback ?? []);
   }
 
   return NextResponse.json(data ?? []);

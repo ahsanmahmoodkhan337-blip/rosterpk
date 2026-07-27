@@ -113,10 +113,12 @@ async function seed() {
   // 2. Create Users — try with new fields, fall back to old
   const usersV2 = [
     { name: 'Dr. Ahmed Khan', phone: '+923001234567', role: 'ADMIN', rank: 'REGISTRAR', email: 'ahmed.khan@hospital.pk', pinCode: '1234', maxHoursLimit: 80, departmentId },
-    { name: 'Dr. Fatima Ali', phone: '+923001234568', role: 'PGT', rank: 'PGT_Y3', email: 'fatima.ali@hospital.pk', pinCode: '2345', maxHoursLimit: 80, departmentId },
-    { name: 'Dr. Bilal Hussain', phone: '+923001234569', role: 'PGT', rank: 'PGT_Y2', email: 'bilal.hussain@hospital.pk', pinCode: '3456', maxHoursLimit: 80, departmentId },
+    { name: 'Dr. Fatima Ali', phone: '+923001234568', role: 'PGT', rank: 'PGT_Y4', email: 'fatima.ali@hospital.pk', pinCode: '2345', maxHoursLimit: 80, departmentId },
+    { name: 'Dr. Bilal Hussain', phone: '+923001234569', role: 'PGT', rank: 'PGT_Y3', email: 'bilal.hussain@hospital.pk', pinCode: '3456', maxHoursLimit: 80, departmentId },
+    { name: 'Dr. Zainab Riaz', phone: '+923001234572', role: 'PGT', rank: 'PGT_Y2', email: 'zainab.riaz@hospital.pk', pinCode: '6789', maxHoursLimit: 80, departmentId },
     { name: 'Dr. Sara Ahmed', phone: '+923001234570', role: 'HO', rank: 'HO_BATCH_A', email: 'sara.ahmed@hospital.pk', pinCode: '4567', maxHoursLimit: 80, departmentId },
     { name: 'Dr. Omar Farooq', phone: '+923001234571', role: 'HO', rank: 'HO_BATCH_B', email: 'omar.farooq@hospital.pk', pinCode: '5678', maxHoursLimit: 80, departmentId },
+    { name: 'Dr. Hamza Tariq', phone: '+923001234573', role: 'HO', rank: 'HO_BATCH_A', email: 'hamza.tariq@hospital.pk', pinCode: '7890', maxHoursLimit: 80, departmentId },
   ];
 
   let useV2Fields = true;
@@ -160,10 +162,54 @@ async function seed() {
     }
   }
 
-  // 3. Create Shift Templates — try with new fields, fall back to old
+  // 3. Create 4 Shift Templates (v2)
+  // First, delete old templates so we have a clean slate
+  await supabase
+    .from('ShiftTemplate')
+    .delete()
+    .eq('departmentId', departmentId);
+
   const templatesV2 = [
-    { name: 'Morning', durationHours: 8, shiftType: 'MORNING', startTime: '08:00', endTime: '14:00', requiredSeniorsCount: 1, requiredJuniorsCount: 1, departmentId },
-    { name: 'Night Call', durationHours: 12, shiftType: 'NIGHT', startTime: '20:00', endTime: '08:00+1', requiredSeniorsCount: 1, requiredJuniorsCount: 1, departmentId },
+    {
+      name: 'Morning',
+      durationHours: 6,
+      shiftType: 'MORNING',
+      startTime: '08:00',
+      endTime: '14:00',
+      requiredSeniorsCount: 1,
+      requiredJuniorsCount: 2,
+      departmentId,
+    },
+    {
+      name: 'Evening',
+      durationHours: 6,
+      shiftType: 'EVENING',
+      startTime: '14:00',
+      endTime: '20:00',
+      requiredSeniorsCount: 1,
+      requiredJuniorsCount: 1,
+      departmentId,
+    },
+    {
+      name: 'Night',
+      durationHours: 12,
+      shiftType: 'NIGHT',
+      startTime: '20:00',
+      endTime: '08:00+1',
+      requiredSeniorsCount: 1,
+      requiredJuniorsCount: 2,
+      departmentId,
+    },
+    {
+      name: '30hr Call',
+      durationHours: 30,
+      shiftType: 'CALL_30HR',
+      startTime: '08:00',
+      endTime: '14:00+1',
+      requiredSeniorsCount: 2,
+      requiredJuniorsCount: 2,
+      departmentId,
+    },
   ];
 
   let useV2Templates = true;
@@ -180,24 +226,25 @@ async function seed() {
     }
 
     if (!useV2Templates) {
+      // Old schema — use simple insert (we already deleted old templates)
       const { error: insertErr } = await supabase
         .from('ShiftTemplate')
-        .upsert({
+        .insert({
           name: template.name,
           durationHours: template.durationHours,
           departmentId: template.departmentId,
-        }, { onConflict: 'name,departmentId', ignoreDuplicates: false });
+        });
 
       if (insertErr) {
         console.error(`  Error creating shift ${template.name}:`, insertErr.message);
       } else {
-        console.log(`✅ Shift template upserted (old schema): ${template.name} (${template.durationHours}h)`);
+        console.log(`✅ Shift template inserted (old schema): ${template.name} (${template.durationHours}h)`);
       }
     } else {
       if (upsertErr) {
         console.error(`  Error creating shift ${template.name}:`, upsertErr.message);
       } else {
-        console.log(`✅ Shift template upserted: ${template.name} (${template.shiftType}, ${template.durationHours}h)`);
+        console.log(`✅ Shift template upserted: ${template.name} (${template.shiftType}, ${template.durationHours}h, S${template.requiredSeniorsCount}/J${template.requiredJuniorsCount})`);
       }
     }
   }
@@ -251,8 +298,17 @@ async function seedSampleRoster(departmentId: string) {
       const date = new Date(monday);
       date.setDate(date.getDate() + day);
       date.setHours(8, 0, 0, 0);
+
+      // Determine actual hours based on shift name
+      let hours: number;
+      const n = template.name;
+      if (n.includes('30hr') || n.includes('30')) hours = 30;
+      else if (n.includes('Night')) hours = 12;
+      else if (n.includes('Evening')) hours = 6;
+      else hours = 6; // Morning
+
       const endDate = new Date(date);
-      endDate.setHours(endDate.getHours() + (template.name === 'Morning' ? 6 : 12));
+      endDate.setHours(endDate.getHours() + hours);
 
       const entry: any = {
         date: date.toISOString(),
@@ -260,10 +316,8 @@ async function seedSampleRoster(departmentId: string) {
         shiftName: template.name,
         startTime: date.toISOString(),
         endTime: endDate.toISOString(),
+        status: 'ASSIGNED',
       };
-
-      // Try with status, fallback without
-      entry.status = 'ASSIGNED';
 
       entries.push(entry);
     }
