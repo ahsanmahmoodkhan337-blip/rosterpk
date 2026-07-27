@@ -1,0 +1,58 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  PGT
+  HO
+}
+
+enum RequestStatus {
+  PENDING
+  PEER_ACCEPTED
+  APPROVED
+  REJECTED
+}
+
+model Department {
+  id             String   @id @default(uuid())
+  name           String
+  hospitalName   String
+  users          User[]
+  shifts         ShiftTemplate[]
+}
+
+model User {
+  id             String        @id @default(uuid())
+  name           String
+  phone          String        @unique
+  role           Role
+  departmentId   String
+  department     Department    @relation(fields: [departmentId], references: [id])
+  rosterEntries  RosterEntry[]
+}
+
+model ShiftTemplate {
+  id             String        @id @default(uuid())
+  name           String        // "Morning", "Night Call"
+  durationHours  Int
+  departmentId   String
+  department     Department    @relation(fields: [departmentId], references: [id])
+}
+
+model RosterEntry {
+  id             String        @id @default(uuid())
+  date           DateTime
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  shiftName      String
+  startTime      DateTime
+  endTime        DateTime
+  isCompleted    Boolean       @default(false)
+}
