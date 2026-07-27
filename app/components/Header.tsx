@@ -2,6 +2,7 @@
 
 import { useAuth } from './AuthProvider';
 import { useRouter } from 'next/navigation';
+import NotificationBell from './NotificationBell';
 
 interface HeaderProps {
   title: string;
@@ -19,18 +20,18 @@ export default function Header({ title, subtitle }: HeaderProps) {
 
   return (
     <>
-      {/* Gold accent top bar */}
-      <div className="h-1 bg-[#fad23b]" />
+      {/* Cyan accent top bar */}
+      <div className="h-1 bg-clinical-cyan" />
 
-      {/* Header with logo and brand */}
-      <header className="bg-[#1e5cd4] p-4 shadow-md">
+      {/* Header with navy slate and clinical branding */}
+      <header className="bg-clinical-navy p-4 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="RosterDoc" className="h-8 w-auto" />
             <div>
               <h1 className="text-xl font-bold text-white">{title}</h1>
               {subtitle && (
-                <p className="text-xs text-[#fad23b]">{subtitle}</p>
+                <p className="text-xs text-cyan-300">{subtitle}</p>
               )}
               {user && (
                 <p className="text-xs text-blue-200 mt-0.5">
@@ -41,6 +42,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {user && <NotificationBell />}
             {user ? (
               <button
                 onClick={handleLogout}
