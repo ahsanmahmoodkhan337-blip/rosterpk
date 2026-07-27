@@ -53,6 +53,20 @@ function DashboardContent() {
       />
 
       <div className="p-4">
+        {/* Quick actions */}
+        <div className="flex gap-3 mb-6">
+          <a
+            href={`/api/calendar?userId=${user!.id}`}
+            className="flex-1 bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow flex items-center gap-3"
+          >
+            <span className="text-2xl">📅</span>
+            <div>
+              <span className="font-semibold text-sm text-gray-800 block">Export Calendar</span>
+              <span className="text-xs text-gray-500">Download .ics for your phone</span>
+            </div>
+          </a>
+        </div>
+
         {/* Promo banner */}
         <div className="bg-[#1e5cd4] rounded-lg p-4 mb-6 shadow-md text-white">
           <h3 className="font-bold text-sm">Tired of 30-hour shifts?</h3>

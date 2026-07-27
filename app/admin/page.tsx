@@ -506,6 +506,17 @@ export default function AdminRosterBuilder() {
             >
               {exportingPdf ? '⏳ Exporting...' : '📄 Export PDF'}
             </button>
+
+            {selectedDeptId && (
+              <>
+                <a
+                  href={`/api/calendar?departmentId=${selectedDeptId}`}
+                  className="bg-[#0072B2] text-white font-bold px-4 py-2 rounded-lg hover:bg-[#005c8f] transition-colors text-sm inline-flex items-center gap-1"
+                >
+                  📅 Export All Schedules
+                </a>
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mb-6">
