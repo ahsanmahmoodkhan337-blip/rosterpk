@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { format, addWeeks, subWeeks, startOfWeek, parseISO, differenceInHours } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, parseISO, differenceInHours } from 'date-fns';
 import Header from '../components/Header';
 
 interface Department {
@@ -53,9 +53,17 @@ export default function AdminRosterBuilder() {
 
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [openCell, setOpenCell] = useState<{ dayIndex: number; shiftName: string } | null>(null);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [inchargeName, setInchargeName] = useState('');
+  const [fromDate, setFromDate] = useState<string>(
+    format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  );
+  const [toDate, setToDate] = useState<string>(
+    format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  );
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,8 +136,22 @@ export default function AdminRosterBuilder() {
     conflictEntryIds.add(c.entry2.id);
   }
 
-  const prevWeek = () => setWeekStart((w) => subWeeks(w, 1));
-  const nextWeek = () => setWeekStart((w) => addWeeks(w, 1));
+  const prevWeek = () => {
+    setWeekStart((w) => {
+      const d = subWeeks(w, 1);
+      setFromDate(format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      setToDate(format(endOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      return d;
+    });
+  };
+  const nextWeek = () => {
+    setWeekStart((w) => {
+      const d = addWeeks(w, 1);
+      setFromDate(format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      setToDate(format(endOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+      return d;
+    });
+  };
 
   function getDateForDay(dayIndex: number): Date {
     const d = new Date(weekStart);
@@ -201,6 +223,44 @@ export default function AdminRosterBuilder() {
       fetch(`/api/roster?departmentId=${selectedDeptId}&weekStart=${weekStr}`)
         .then((r) => r.json())
         .then((data) => setRosterEntries(Array.isArray(data) ? data : []));
+    }
+  }
+
+  async function exportPdf() {
+    if (!selectedDeptId) return;
+    setExportingPdf(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/roster/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          departmentId: selectedDeptId,
+          startDate: fromDate,
+          endDate: toDate,
+          inchargeName,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'PDF export failed');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `roster-${selectedDept?.name ?? 'roster'}-${fromDate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError('PDF export failed: ' + e.message);
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -283,7 +343,7 @@ export default function AdminRosterBuilder() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
           <select
             value={selectedDeptId}
             onChange={(e) => setSelectedDeptId(e.target.value)}
@@ -322,6 +382,51 @@ export default function AdminRosterBuilder() {
           >
             {generating ? 'Generating...' : 'Generate Draft Roster'}
           </button>
+
+          <button
+            onClick={exportPdf}
+            disabled={!selectedDeptId || exportingPdf}
+            className="bg-[#fad23b] text-black font-bold px-4 py-2 rounded-lg hover:bg-[#ffe066] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {exportingPdf ? '⏳ Exporting...' : '📄 Export PDF'}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-600">From:</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setWeekStart(startOfWeek(parseISO(e.target.value), { weekStartsOn: 1 }));
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#1e5cd4] focus:border-transparent"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-600">To:</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setWeekStart(startOfWeek(parseISO(e.target.value), { weekStartsOn: 1 }));
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#1e5cd4] focus:border-transparent"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-gray-600">Assigned By:</label>
+            <input
+              type="text"
+              value={inchargeName}
+              onChange={(e) => setInchargeName(e.target.value)}
+              placeholder="Enter your name"
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm w-48 focus:ring-2 focus:ring-[#1e5cd4] focus:border-transparent"
+            />
+          </div>
         </div>
 
         {!selectedDeptId && (
