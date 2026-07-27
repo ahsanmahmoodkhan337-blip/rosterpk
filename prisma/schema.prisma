@@ -13,6 +13,17 @@ enum Role {
   HO
 }
 
+enum Rank {
+  HO_BATCH_A
+  HO_BATCH_B
+  PGT_Y1
+  PGT_Y2
+  PGT_Y3
+  PGT_Y4
+  REGISTRAR
+  SENIOR_REGISTRAR
+}
+
 enum RequestStatus {
   PENDING
   PEER_ACCEPTED
@@ -20,30 +31,62 @@ enum RequestStatus {
   REJECTED
 }
 
+enum ShiftType {
+  MORNING
+  EVENING
+  NIGHT
+  CALL_30HR
+}
+
+enum RosterStatus {
+  ASSIGNED
+  COMPLETED
+  SWAPPED
+}
+
+enum SwapStatus {
+  PENDING_PEER
+  PENDING_ADMIN
+  APPROVED
+  REJECTED
+}
+
 model Department {
-  id             String   @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
   hospitalName   String
+  accessCode     String?         @unique
   users          User[]
   shifts         ShiftTemplate[]
 }
 
 model User {
-  id             String        @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
-  phone          String        @unique
+  phone          String          @unique
+  email          String?         @unique
+  pinCode        String?
   role           Role
+  rank           Rank?
+  maxHoursLimit  Int             @default(80)
   departmentId   String
-  department     Department    @relation(fields: [departmentId], references: [id])
+  department     Department      @relation(fields: [departmentId], references: [id])
   rosterEntries  RosterEntry[]
+  sentSwaps      SwapRequest[]   @relation("SentSwaps")
+  receivedSwaps  SwapRequest[]   @relation("ReceivedSwaps")
 }
 
 model ShiftTemplate {
-  id             String        @id @default(uuid())
-  name           String        // "Morning", "Night Call"
-  durationHours  Int
-  departmentId   String
-  department     Department    @relation(fields: [departmentId], references: [id])
+  id                    String     @id @default(uuid())
+  name                  String     // "Morning", "Night Call" — kept for backward compat
+  durationHours         Int        // kept for backward compat
+  shiftType             ShiftType?
+  startTime             String?    // e.g. "08:00"
+  endTime               String?    // e.g. "14:00" or "14:00+1"
+  requiredSeniorsCount  Int        @default(1)
+  requiredJuniorsCount  Int        @default(1)
+  departmentId          String
+  department            Department @relation(fields: [departmentId], references: [id])
 }
 
 model RosterEntry {
@@ -55,4 +98,19 @@ model RosterEntry {
   startTime      DateTime
   endTime        DateTime
   isCompleted    Boolean       @default(false)
+  status         RosterStatus  @default(ASSIGNED)
+  swapRequests   SwapRequest[]
+}
+
+model SwapRequest {
+  id             String      @id @default(uuid())
+  requesterId    String
+  recipientId    String
+  rosterEntryId  String
+  status         SwapStatus  @default(PENDING_PEER)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  requester      User        @relation("SentSwaps", fields: [requesterId], references: [id])
+  recipient      User        @relation("ReceivedSwaps", fields: [recipientId], references: [id])
+  rosterEntry    RosterEntry @relation(fields: [rosterEntryId], references: [id])
 }
