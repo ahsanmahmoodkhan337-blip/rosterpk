@@ -12,7 +12,12 @@ CREATE TABLE IF NOT EXISTS "Department" (
 );
 
 -- Users table
-CREATE TYPE "Role" AS ENUM ('ADMIN', 'PGT', 'HO');
+DO $func$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Role') THEN
+    CREATE TYPE "Role" AS ENUM ('ADMIN', 'PGT', 'HO');
+  END IF;
+END $func$;
 
 CREATE TABLE IF NOT EXISTS "User" (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
