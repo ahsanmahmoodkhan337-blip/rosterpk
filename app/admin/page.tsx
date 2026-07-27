@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, parseISO, differenceInHours } from 'date-fns';
 import Header from '../components/Header';
 import AuthGuard from '../components/AuthGuard';
+import { useAuth, AuthUser } from '../components/AuthProvider';
 
 interface Department {
   id: string;
@@ -73,6 +74,7 @@ function requiredRestForShift(shiftName: string): number {
 }
 
 export default function AdminRosterBuilder() {
+  const { user } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -101,6 +103,13 @@ export default function AdminRosterBuilder() {
       .then(setDepartments)
       .catch(() => setError('Failed to load departments'));
   }, []);
+
+  // Auto-select department from authenticated user
+  useEffect(() => {
+    if (user?.departmentId && selectedDeptId !== user.departmentId) {
+      setSelectedDeptId(user.departmentId);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!selectedDeptId) return;
@@ -416,7 +425,7 @@ export default function AdminRosterBuilder() {
       <div className="min-h-screen bg-gray-50">
         <Header
           title="Roster Builder"
-          subtitle={selectedDept ? `${selectedDept.name} — ${selectedDept.hospitalName}` : 'Select a department'}
+          subtitle={selectedDept ? `${selectedDept.name} — ${selectedDept.hospitalName}` : (user?.departmentName || 'Loading...')}
         />
 
         <div className="p-4 max-w-7xl mx-auto">
@@ -463,18 +472,14 @@ export default function AdminRosterBuilder() {
           )}
 
           <div className="flex flex-wrap items-center gap-3 mb-3">
-            <select
-              value={selectedDeptId}
-              onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[#1e5cd4] focus:border-transparent"
-            >
-              <option value="">Select a department...</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.hospitalName})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2 border border-cyan-300 bg-cyan-50 rounded-lg px-3 py-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#0072B2]" />
+              <span className="text-sm font-semibold text-[#0072B2]">
+                {selectedDept
+                  ? `${selectedDept.name} — ${selectedDept.hospitalName}`
+                  : user?.departmentName || 'Loading...'}
+              </span>
+            </div>
 
             <div className="flex items-center gap-2 ml-auto">
               <button
@@ -558,12 +563,6 @@ export default function AdminRosterBuilder() {
               />
             </div>
           </div>
-
-          {!selectedDeptId && (
-            <div className="text-center py-16 text-gray-500">
-              <p className="text-lg">Select a department to begin</p>
-            </div>
-          )}
 
           {selectedDeptId && loading && (
             <div className="text-center py-16 text-gray-500">
