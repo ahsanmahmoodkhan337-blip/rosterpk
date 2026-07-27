@@ -57,11 +57,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Case-insensitive lookup by name
+    // Case-insensitive lookup by name.
+    // Use limit(1).maybeSingle() to handle partial matches gracefully —
+    // if multiple departments match (e.g. "Surg" matches "Surgery" and "Surgical Ward"),
+    // we just take the first one instead of erroring on maybeSingle().
     const { data: existing, error: lookupErr } = await supabase
       .from('Department')
       .select('id, name, hospitalName')
       .ilike('name', deptName)
+      .limit(1)
       .maybeSingle();
 
     if (lookupErr && !lookupErr.message?.includes('No rows found') && !lookupErr.message?.includes('multiple')) {

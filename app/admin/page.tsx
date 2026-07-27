@@ -390,8 +390,11 @@ export default function AdminRosterBuilder() {
     }
   }
 
-  // Include ADMIN doctors too (they may have REGISTRAR rank)
-  const doctors = users.filter((u) => u.role === 'HO' || u.role === 'PGT' || u.role === 'ADMIN');
+  // Show all users in the department — don't filter by role.
+  // Registrars, Consultants, and other designations are mapped to role='HO'
+  // but must still appear in the doctor picker. If a PATIENT role is ever
+  // introduced, filter it out here.
+  const doctors = users;
   const selectedDept = departments.find((d) => d.id === selectedDeptId);
 
   useEffect(() => {

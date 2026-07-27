@@ -126,12 +126,37 @@ export async function POST(req: NextRequest) {
       // Column doesn't exist, skip
     }
 
-    if (trimmedRole && trimmedRole !== 'HO' && trimmedRole !== 'ADMIN') {
+    // Only map designation -> rank/role for non-first users.
+    // First user is always ADMIN and must not have their role overridden.
+    if (!isFirstUser && trimmedRole && trimmedRole !== 'HO' && trimmedRole !== 'ADMIN') {
       try {
         insertPayload.rank = trimmedRole.toUpperCase().replace(/ /g, '_');
         insertPayload.role = 'HO';
       } catch {
         // rank column may not exist
+      }
+    }
+
+    // BUG 2 fix: Check for duplicate phone numbers before inserting
+    if (trimmedPhone) {
+      const { data: existingPhone, error: phoneErr } = await supabase
+        .from('User')
+        .select('id')
+        .eq('phone', trimmedPhone)
+        .maybeSingle();
+
+      if (phoneErr && !phoneErr.message?.includes('No rows found')) {
+        return NextResponse.json(
+          { error: 'Error checking phone number' },
+          { status: 500 },
+        );
+      }
+
+      if (existingPhone) {
+        return NextResponse.json(
+          { error: 'A user with this phone number already exists' },
+          { status: 409 },
+        );
       }
     }
 
